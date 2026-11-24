@@ -258,7 +258,7 @@ details.paste textarea { width: 100%; margin-top: 8px; min-height: 120px; paddin
         <input type="number" id="start" min="1" max="8" step="1">
       </div>
       <label class="check"><input type="checkbox" id="cut"> Draw cut lines around each tag</label>
-      <label class="check"><input type="checkbox" id="showLogo"> Print the logo</label>
+      <label class="check"><input type="checkbox" id="showLogo"> Print the logo (empty spots get the logo too)</label>
       <div class="actions" style="margin:0 0 4px">
         <label class="btn">Change logo<input type="file" id="logoIn" accept="image/*"></label>
         <button class="btn quiet" id="logoReset" type="button">Use Rotary Makati logo</button>
@@ -458,14 +458,19 @@ details.paste textarea { width: 100%; margin-top: 8px; min-height: 120px; paddin
       sheet.style.setProperty("--gy", TOP + "in");
       for (var c = 0; c < PER_PAGE; c++) {
         var tag = el("div", "tag");
-        var t = blankMode ? { name: "", role: "" } : state.tags[p * PER_PAGE + c - start];
-        if (t && (blankMode || t.name.trim() || t.role.trim())) {
+        var idx = p * PER_PAGE + c - start;
+        var t = blankMode ? { name: "", role: "" } : state.tags[idx];
+        var hasText = !!(t && (t.name.trim() || t.role.trim()));
+        /* Positions skipped by "Start at tag position" stay bare (already used).
+           Every other empty slot gets the logo so the paper is not wasted. */
+        var fillLogo = blankMode || idx >= 0;
+        if (fillLogo) {
           if (o.showLogo || blankMode) {
             var img = el("img", "logo");
             img.src = logoSrc; img.alt = "";
             tag.appendChild(img);
           }
-          if (!blankMode) {
+          if (hasText && !blankMode) {
             var nm = el("div", "name"); nm.appendChild(el("span", "", t.name.trim()));
             nm.style.fontSize = o.nameSize + "pt"; nm.dataset.max = o.nameSize; nm.dataset.min = 12;
             tag.appendChild(nm);
@@ -883,11 +888,12 @@ details.paste textarea { width: 100%; margin-top: 8px; min-height: 120px; paddin
             for (var cc = 0; cc <= 2; cc++) page.drawLine({ start: { x: gx + cc * cw, y: PH - gy }, end: { x: gx + cc * cw, y: PH - (gy + ch * 4) }, thickness: 0.75, color: rgb(0, 0, 0) });
           }
           for (var c = 0; c < PER_PAGE; c++) {
-            var t = blankMode ? { name: "", role: "" } : state.tags[p * PER_PAGE + c - start];
-            if (!t || !(blankMode || nonEmpty(t))) continue;
+            var pidx = p * PER_PAGE + c - start;
+            if (!blankMode && pidx < 0) continue;
+            var t = blankMode ? { name: "", role: "" } : (state.tags[pidx] || { name: "", role: "" });
             var x = gx + (c % 2) * cw, y = gy + Math.floor(c / 2) * ch;
             if (o.showLogo || blankMode) page.drawImage(img, { x: x + (cw - lw) / 2, y: PH - (y + 0.33 * 72) - lh, width: lw, height: lh });
-            if (blankMode) continue;
+            if (blankMode || !nonEmpty(t)) continue;
             if (t.name.trim()) drawFit(page, bold, t.name.trim(), x + cw / 2, y + 1.53 * 72, PH, o.nameSize, 12);
             if (t.role.trim()) drawFit(page, reg, t.role.trim(), x + cw / 2, y + 1.92 * 72, PH, o.roleSize, 9);
           }
